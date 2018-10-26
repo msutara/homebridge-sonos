@@ -76,38 +76,51 @@ SonosAccessory.zoneTypeIsPlayable = function (zoneType) {
 
 SonosAccessory.prototype.search = function () {
         const search = sonos.Search({ timeout: 5000 });
-        search.on('DeviceAvailable', (device, model) => { 
+        search.on('DeviceAvailable', (device, model) => {
 
                 this.log("Found sonos device %s at %s:%s", model, device.host, device.port);
 
                 device.deviceDescription()
-                .then(deviceDescription => {
-                        var zoneType = deviceDescription["zoneType"];
-                        var roomName = deviceDescription["roomName"];
+                        .then(deviceDescription => {
+                                var zoneType = deviceDescription["zoneType"];
+                                var roomName = deviceDescription["roomName"];
 
-                        if (SonosAccessory.zoneTypeIsPlayable(zoneType)) {
-                                if (roomName == this.room) {
-                                        this.log.debug("Found a playable device at %s for room '%s'", device.host, roomName);
+                                if (SonosAccessory.zoneTypeIsPlayable(zoneType)) {
+                                        if (roomName == this.room) {
+                                                this.log.debug("Found a playable device at %s for room '%s'", device.host, roomName);
 
-                                        this.device = device;
-                                        sonosAccessories.push(this);
+                                                var known = false;
+                                                for(var accessory of sonosAccessories) {
+                                                        if (accessory.device) {
+                                                                if (accessory.device.host == device.host) {
+                                                                        this.log.debug("Playable device at %s is already known", device.host);
+                                                                        known = true;
+                                                                        break;
+                                                                }
+                                                        }
+                                                }
+                                                if (!known) {
+                                                        this.log.debug("Adding playable device at %s", device.host);
+                                                        this.device = device;
+                                                        sonosAccessories.push(this);
+                                                }
+                                        }
+                                        else {
+                                                this.log.debug("Ignoring device %s because the room name '%s' does not match the desired name '%s'.", device.host, roomName, this.room);
+                                        }
                                 }
                                 else {
-                                        this.log.debug("Ignoring device %s because the room name '%s' does not match the desired name '%s'.", device.host, roomName, this.room);
+                                        this.log.debug("Sonos device %s is not playable (has an unknown zone type of %s); ignoring", device.host, zoneType);
                                 }
-                        }
-                        else {
-                                this.log.debug("Sonos device %s is not playable (has an unknown zone type of %s); ignoring", device.host, zoneType);
-                        }
-                })
-                .catch(err => {
-                        this.log('Error adding %j', err);
-                });
+                        })
+                        .catch(err => {
+                                this.log('Error adding %j', err);
+                        });
         });
 
         setTimeout(function () {
                 this.log.debug('Stop searching for Sonos devices')
-              }.bind(this), 5000);       
+        }.bind(this), 5000);
 }
 
 SonosAccessory.prototype.getServices = function () {
